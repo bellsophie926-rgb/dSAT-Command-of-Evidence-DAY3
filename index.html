@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Alina's dSAT - Command of Evidence (Day 3 SPRINT)</title>
+    <style>
+        :root {
+            --bluebook-dark: #1e1e1e;
+            --bluebook-header: #f2f2f2;
+            --bluebook-border: #d2d2d2;
+            --bluebook-blue: #0077c8;
+            --bluebook-light-bg: #fafafa;
+            --success: #28a745;
+            --danger: #dc3545;
+            --warning: #ffc107;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: var(--bluebook-dark); display: flex; justify-content: center; align-items: center; height: 100vh; }
+        .app-container { width: 95vw; height: 90vh; background-color: #fff; border-radius: 8px; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.3); position: relative; }
+        
+        /* Header */
+        header { background-color: var(--bluebook-header); padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--bluebook-border); font-weight: 600; color: #333; }
+        .timer { font-family: monospace; font-size: 1.2em; background: #e0e0e0; padding: 5px 12px; border-radius: 4px; font-weight: bold; transition: background-color 0.3s; }
+        .timer.urgent { background: var(--danger); color: white; animation: pulse 1s infinite; }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.8; } 100% { opacity: 1; } }
+        .teacher-link { font-size: 0.85em; color: #777; cursor: pointer; text-decoration: underline; margin-left: 15px; }
+        .teacher-link:hover { color: var(--bluebook-blue); }
+
+        /* Views */
+        .view-section { display: none; flex: 1; overflow: hidden; }
+        .view-section.active { display: flex; }
+        
+        /* Split Screen */
+        .split-screen { flex: 1; width: 100%; display: flex;}
+        .left-panel { flex: 1; padding: 40px; border-right: 2px solid var(--bluebook-border); overflow-y: auto; background-color: var(--bluebook-light-bg); }
+        .passage { font-family: Georgia, serif; font-size: 1.25em; line-height: 1.8; color: #222; }
+        .right-panel { flex: 1; padding: 40px; overflow-y: auto; display: flex; flex-direction: column; }
+        .question-text { font-size: 1.15em; font-weight: bold; margin-bottom: 20px; color: #222; }
+        
+        /* Direction Checker */
+        .direction-checker { background-color: #fff3cd; border: 2px dashed #ffc107; padding: 15px; border-radius: 6px; margin-bottom: 25px; }
+        .direction-checker label { font-weight: bold; color: #856404; display: block; margin-bottom: 10px; }
+        .direction-checker select { padding: 8px; font-size: 1em; width: 100%; border-radius: 4px; border: 1px solid #ffc107; }
+        
+        /* Options */
+        .options-list { list-style: none; display: flex; flex-direction: column; gap: 15px; margin-bottom: 30px; }
+        .option-item { border: 1px solid var(--bluebook-border); border-radius: 6px; padding: 15px; cursor: pointer; transition: all 0.2s ease; display: flex; align-items: flex-start; }
+        .option-item:hover { background-color: #f0f8ff; border-color: var(--bluebook-blue); }
+        .option-item.selected { background-color: #e6f3ff; border: 2px solid var(--bluebook-blue); box-shadow: 0 0 0 1px var(--bluebook-blue); }
+        .letter-circle { width: 28px; height: 28px; border-radius: 50%; border: 1px solid #777; display: flex; justify-content: center; align-items: center; font-weight: bold; margin-right: 15px; flex-shrink: 0; }
+        .option-item.selected .letter-circle { background-color: var(--bluebook-blue); color: white; border-color: var(--bluebook-blue); }
+        .option-content { font-size: 1.05em; line-height: 1.5; color: #333; }
+        
+        /* Buttons */
+        .controls { display: flex; justify-content: space-between; margin-top: auto; }
+        button { padding: 10px 25px; font-size: 1em; font-weight: 600; border: none; border-radius: 20px; cursor: pointer; transition: 0.2s; }
+        .btn-submit { background-color: var(--bluebook-blue); color: white; }
+        .btn-submit:hover { background-color: #005f9e; }
+        .btn-next { background-color: #333; color: white; display: none; }
+        .btn-next:hover { background-color: #000; }
+        
+        .feedback { display: none; margin-top: 20px; padding: 20px; border-radius: 6px; font-size: 1.05em; line-height: 1.6; }
+        .feedback.correct { background-color: #d4edda; border-left: 5px solid var(--success); }
+        .feedback.incorrect { background-color: #f8d7da; border-left: 5px solid var(--danger); }
+        .pathology { margin-top: 10px; background: rgba(255,255,255,0.7); padding: 12px; border-radius: 4px; font-size: 0.95em; }
+        
+        .progress-bar { height: 4px; background: var(--bluebook-border); width: 100%;}
+        .progress-fill { height: 100%; background: var(--bluebook-blue); width: 0%; transition: width 0.3s; }
+
+        .center-view { flex-direction: column; justify-content: center; align-items: center; text-align: center; padding: 40px; width: 100%; overflow-y: auto; }
+        .code-box { background: #f4f4f4; border: 1px solid #ccc; padding: 15px; margin: 20px 0; border-radius: 5px; word-break: break-all; font-family: monospace; font-size: 1.1em; user-select: all; max-width: 600px;}
+        
+        /* Teacher Portal */
+        .teacher-container { width: 80%; max-width: 800px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
+        textarea { width: 100%; height: 100px; padding: 10px; font-family: monospace; border-radius: 5px; border: 1px solid #ccc; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { border: 1px solid var(--bluebook-border); padding: 12px; text-align: left; }
+        th { background-color: var(--bluebook-header); }
+        .pass { color: var(--success); font-weight: bold; }
+        .fail { color: var(--danger); font-weight: bold; }
+        .stats-summary { display: flex; justify-content: space-between; background: #e8f4f8; padding: 15px; border-radius: 5px; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<div class="app-container">
+    <div class="progress-bar"><div class="progress-fill" id="progress"></div></div>
+    <header>
+        <div id="q-counter">Question 1 of 15</div>
+        <div>
+            Day 3: Sprint Challenge 
+            <span class="teacher-link" onclick="openTeacherPortal()">[Teacher Portal]</span>
+        </div>
+        <div class="timer" id="timer-display">30:00</div>
+    </header>
+    
+    <div class="view-section active" id="quiz-view">
+        <div class="split-screen">
+            <div class="left-panel">
+                <div class="passage" id="passage-text">Loading passage...</div>
+            </div>
+            <div class="right-panel">
+                <div class="question-text" id="question-text">Loading question...</div>
+                
+                <div class="direction-checker">
+                    <label>🚨 LOGIC DIRECTION CHECK</label>
+                    <select id="direction-dropdown">
+                        <option value="">-- Support (+) or Weaken (-) ? --</option>
+                        <option value="Support">Support (+)</option>
+                        <option value="Weaken">Weaken (-)</option>
+                    </select>
+                </div>
+                
+                <ul class="options-list" id="options-list"></ul>
+                
+                <div class="controls">
+                    <button class="btn-submit" id="submit-btn" onclick="checkAnswer()">Submit Answer</button>
+                    <button class="btn-next" id="next-btn" onclick="nextQuestion()">Next Question ➡️</button>
+                    <button class="btn-submit" id="finish-btn" onclick="finishTest()" style="display:none; background-color: var(--success);">Generate Report</button>
+                </div>
+                
+                <div class="feedback" id="feedback-box"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="view-section center-view" id="completion-view">
+        <h2 id="end-title">🎉 Day 3 Complete!</h2>
+        <p style="margin-top: 15px; font-size: 1.1em;" id="end-msg">Great job managing your time. Copy the code below for your teacher.</p>
+        <div class="code-box" id="submission-code">Generating code...</div>
+        <button class="btn-submit" onclick="copyCode()">Copy Code</button>
+    </div>
+
+    <div class="view-section center-view" id="teacher-view" style="align-items: flex-start; text-align: left;">
+        <div class="teacher-container">
+            <h2>👨‍🏫 Teacher Portal: Performance Analytics</h2>
+            <p>Paste the student's submission code below to decode their session data.</p>
+            <textarea id="teacher-code-input" placeholder="Paste Base64 code here..."></textarea>
+            <button class="btn-submit" onclick="decodeData()">Decode Report</button>
+            <button class="btn-next" style="display:inline-block; margin-left: 10px;" onclick="returnToQuiz()">Back to Quiz</button>
+            
+            <div id="teacher-dashboard" style="display:none; width: 100%;">
+                <div class="stats-summary" id="stats-summary"></div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Q#</th>
+                            <th>Direction</th>
+                            <th>Student Answer</th>
+                            <th>Status</th>
+                            <th>Time Spent (s)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="report-table-body"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Day 3 Database: 4 carried over from Day 2 + 11 Brand New Questions
+    const questions = [
+        // --- Carried over from Day 2 (Support) ---
+        { passage: "A city library eliminated all late fees for overdue books. Critics warned this would cause book unreturned rates to skyrocket, as patrons would have no incentive to bring them back. The head librarian, however, hypothesized that the fees were actually a psychological barrier causing patrons to hide overdue books out of shame; therefore, removing the fees would paradoxically result in more overdue books being returned.", question: "Which data point most directly supports the head librarian's hypothesis?", direction: "Support", options: ["The total number of books checked out per month increased by 15% after the fees were eliminated.", "In the six months following the policy change, the library received 4,000 long-overdue books that had been missing for over a year, a 300% increase from the previous period.", "A survey showed that 80% of library patrons strongly supported the elimination of late fees.", "The library lost approximately $10,000 in annual revenue that would have been collected from late fees."], correct: 1, pathology: "<b>Claim:</b> No fees = Removes shame = MORE overdue books returned.<br><b>Trap Analysis:</b> (B) directly proves the paradox with data: a massive 300% surge in returned overdue books." },
+        { passage: "Archaeologists analyzing Roman gladiator bones found in Ephesus noted extremely high levels of strontium, a mineral associated with a heavy intake of plant matter. Dr. Rossi hypothesizes that contrary to popular belief, gladiators did not eat a meat-heavy diet to build muscle, but were essentially vegetarians who consumed a specialized 'ash drink' (plant ash mixed in water) to quickly fortify their bones after combat injuries.", question: "Which finding, if true, would most directly support Dr. Rossi’s hypothesis?", direction: "Support", options: ["Contemporary Roman historical texts frequently refer to gladiators using the derogatory slang term hordearii, which translates literally to 'barley eaters.'", "Strontium can occasionally be found in high concentrations in local groundwater supplies near Ephesus.", "Roman legionaries, who were the premier soldiers of the empire, were provided with a daily ration that included salted pork and beef.", "The bones of ordinary citizens from Ephesus show much lower levels of healed fractures compared to the gladiator bones."], correct: 0, pathology: "<b>Claim:</b> Gladiators = Vegetarians.<br><b>Trap Analysis:</b> (A) provides historical evidence matching the dietary hypothesis (literally called barley eaters)." },
+        { passage: "A supermarket chain started placing 'locally sourced' stickers on vegetables grown within 50 miles. The marketing team hypothesized that consumers are highly motivated by environmental concerns, and therefore, putting these stickers on items would allow the store to charge a 20% premium on local vegetables without losing sales volume compared to non-local vegetables.", question: "Which data point most directly supports the marketing team's hypothesis?", direction: "Support", options: ["Customer satisfaction surveys indicated a 15% increase in positive brand perception for the supermarket chain.", "Sales volume of locally sourced tomatoes priced at $3.00/lb matched the sales volume of identical non-local tomatoes priced at $2.50/lb.", "Transportation costs for the supermarket chain dropped by 10% because local farms require less fuel for delivery.", "40% of shoppers stated they did not notice the 'locally sourced' stickers on the packaging."], correct: 1, pathology: "<b>Claim:</b> Stickers = Charge 20% premium without losing volume.<br><b>Trap Analysis:</b> (B) perfectly matches the math: $3.00 is exactly a 20% premium over $2.50, and the volume matched." },
+        { passage: "Musicologist Dr. Vargas studies the intricate polyphonic choral music of the 16th century. He notes that composer Josquin des Prez often used sudden, dissonant (clashing) chords specifically on words related to sorrow or sin. Dr. Vargas hypothesizes that Josquin was pioneering a technique called 'word painting,' deliberately sacrificing musical harmony to force the listener to emotionally experience the literal meaning of the specific lyric being sung.", question: "Which finding, if true, would most directly support Dr. Vargas’s hypothesis?", direction: "Support", options: ["In Josquin’s instrumental pieces, which lack lyrics entirely, sudden dissonant chords are almost never used.", "Many other composers of the 16th century strictly followed the rules of pure harmony and avoided dissonance altogether.", "The singers in Josquin's choir were highly trained professionals capable of performing extremely complex musical transitions.", "Contemporary church leaders often criticized any music that was too complex, preferring simple, monophonic chants."], correct: 0, pathology: "<b>Claim:</b> Dissonance = deliberately tied to lyrics.<br><b>Trap Analysis:</b> (A) proves it via the Null Hypothesis. If dissonance is for lyrics, then pieces without lyrics shouldn't have it." },
+        
+        // --- 11 BRAND NEW QUESTIONS ---
+        { passage: "Biologists studying the waggle dance of honeybees have long believed that the primary function of the dance is to communicate the exact distance and direction of a newly discovered food source to the rest of the hive. However, Dr. Kaelen posits a secondary hypothesis: the intensity and duration of the dance also serve as an immunological 'health check,' wherein weaker, parasite-infected bees are physically incapable of completing the vigorous dance, thereby preventing them from recruiting foragers and spreading potential pathogens.", question: "Which finding, if true, would most directly weaken Dr. Kaelen’s hypothesis?", direction: "Weaken", options: ["Bees infected with the Varroa mite perform the waggle dance with the exact same intensity and duration as completely healthy bees.", "Forager bees are more likely to follow the directions of a bee that performs a longer, more vigorous waggle dance.", "Parasite-infected bees often die before they can return to the hive to perform any dance at all.", "The waggle dance consumes a significant amount of the bee's stored energy reserves."], correct: 0, pathology: "<b>Claim:</b> Dance intensity = Shows health / Infected bees can't do it.<br><b>Trap Analysis:</b> (A) directly contradicts the claim. If infected bees dance with the exact same intensity, the dance is NOT a health check." },
+        { passage: "Urban planners in Metropolis noticed a high rate of pedestrian accidents at major intersections. They implemented 'Leading Pedestrian Intervals' (LPIs), which give pedestrians a 4-second head start to cross the street before cars are given a green light. The planners hypothesized that LPIs would drastically reduce accidents by making pedestrians more visible to turning drivers who are waiting at the red light.", question: "Which data point from a post-implementation study most directly supports the planners' hypothesis?", direction: "Support", options: ["Overall vehicle traffic wait times at intersections with LPIs increased by an average of 8%.", "Accidents involving vehicles driving straight through the intersection decreased by 2%.", "Pedestrian collisions caused by left-turning and right-turning vehicles dropped by 60% at intersections with LPIs.", "Surveys showed that 75% of pedestrians felt less anxious when crossing streets with LPIs."], correct: 2, pathology: "<b>Claim:</b> LPIs = Pedestrians more visible to TURNING drivers = Fewer accidents.<br><b>Trap Analysis:</b> (C) perfectly connects the specific variable (turning vehicles) to the desired outcome (60% drop in collisions)." },
+        { passage: "Historian Evelyn Reed is analyzing the rapid decline of the medieval Viking settlement in Greenland during the 15th century. Most scholars attribute the abandonment entirely to the onset of the 'Little Ice Age,' which made agriculture impossible. Reed, however, hypothesizes that the collapse of the European market for walrus ivory—the settlement's primary export—was the actual catalyst, arguing that without ivory profits, the Greenlanders could no longer afford to import essential iron tools and timber.", question: "Which finding, if true, would most directly support Reed’s hypothesis?", direction: "Support", options: ["Ice core samples confirm that temperatures in Greenland plummeted drastically precisely during the 15th century.", "Archaeological digs in Greenland reveal that the settlers primarily relied on domestic sheep and cattle for their own food supply.", "Financial ledgers from European trading hubs show that the price of walrus ivory crashed in the late 14th century due to a sudden influx of cheaper elephant ivory from Africa.", "Many Greenland settlers eventually migrated back to Iceland or Norway, integrating into coastal fishing communities."], correct: 2, pathology: "<b>Claim:</b> Ivory market collapse = No profits to buy tools = Settlement collapse.<br><b>Trap Analysis:</b> (C) provides the economic evidence of the ivory market crashing right before the collapse, supporting her economic catalyst theory." },
+        { passage: "An educational software company transitioned its main learning app from a one-time purchase fee to a monthly subscription model. The Chief Financial Officer (CFO) hypothesized that while this move might anger some existing users, it would ultimately double the company's annual revenue because the continuous influx of small monthly payments would far exceed the previous revenue generated by infrequent, single-time app purchases.", question: "Which choice provides data from the first year of the subscription model that most directly weakens the CFO's hypothesis?", direction: "Weaken", options: ["The company received thousands of negative reviews on the app store complaining about the new subscription fee.", "While the number of active users remained stable, the total annual revenue generated was 15% lower than the average of the previous three years.", "Marketing costs to acquire new subscribers were 20% higher than the costs to acquire one-time purchasers.", "A competitor launched a similar educational app that remained entirely free, supported only by advertisements."], correct: 1, pathology: "<b>Claim:</b> Subscription model = Double annual revenue.<br><b>Trap Analysis:</b> (B) directly attacks the numerical claim. Revenue didn't double; it actually dropped by 15%." },
+        { passage: "Literary scholars have long noted that early Victorian novels were often published serially—one chapter per week in magazines—rather than as complete books. Critic Thomas Vance hypothesizes that this serial format fundamentally altered the pacing of Victorian literature, forcing authors to artificially insert dramatic cliffhangers at the end of every weekly installment merely to ensure readers would purchase the next week's magazine, rather than for organic plot development.", question: "Which finding, if true, would most directly support Vance’s hypothesis?", direction: "Support", options: ["Original manuscripts show that many authors often wrote the final chapters of their novels before writing the middle sections.", "When serial novels were later published as complete, single-volume books, readers often complained that the pacing felt disjointed and overly dramatic in the middle chapters.", "Victorian magazines that featured serial novels were often much more expensive than daily newspapers.", "Authors who published serially were typically paid per word, leading to highly descriptive and lengthy paragraphs."], correct: 1, pathology: "<b>Claim:</b> Serial format = Artificial cliffhangers disrupting organic plot.<br><b>Trap Analysis:</b> (B) proves the theory. When read all at once (as a book), the artificial weekly cliffhangers suddenly feel 'disjointed', proving they were inserted for the magazine format, not organic flow." },
+        { passage: "Geologists studying the deep-sea Mariana Trench have observed unusually high concentrations of a rare mineral, zircalite, in the sediment. The standard theory posits that zircalite is formed by underwater volcanic eruptions. Dr. Chen, however, hypothesizes that the zircalite in the trench did not originate from Earth at all, but is extraterrestrial dust delivered by a massive meteor impact that occurred millions of years ago in the nearby Pacific Ocean.", question: "Which finding, if true, would most directly weaken Dr. Chen’s hypothesis?", direction: "Weaken", options: ["The specific isotopic signature of the Mariana Trench zircalite perfectly matches the zircalite found in active, land-based volcanoes in Japan.", "No impact crater large enough to have delivered such quantities of dust has been discovered on the Pacific Ocean floor.", "Meteorites recovered from recent falls in Antarctica contain trace amounts of zircalite.", "The deep-sea currents in the Pacific Ocean are strong enough to transport light sediment particles over thousands of miles."], correct: 0, pathology: "<b>Claim:</b> Zircalite = Extraterrestrial (Meteor), NOT volcanic.<br><b>Trap Analysis:</b> (A) completely destroys the meteor theory by chemically proving the trench mineral perfectly matches normal Earth volcanoes." },
+        { passage: "To increase online sales, a clothing retailer added a 'Virtual Try-On' feature to its app, allowing users to see how clothes would look on a 3D avatar. The marketing director hypothesized that this feature would not necessarily attract new customers, but it would significantly reduce the company's financial losses by dramatically lowering the return rate of purchased items, since customers could accurately gauge fit before buying.", question: "Which data point most directly supports the marketing director's hypothesis?", direction: "Support", options: ["The total number of app downloads increased by 5% after the Virtual Try-On feature was introduced.", "Customers who used the Virtual Try-On feature returned only 4% of their purchased items, compared to a 22% return rate for customers who did not use the feature.", "Development and maintenance of the 3D avatar technology cost the company $500,000 in the first quarter.", "Surveys indicate that users spent an average of 12 minutes playing with the 3D avatars without adding any items to their cart."], correct: 1, pathology: "<b>Claim:</b> Virtual Try-On = Dramatically lower return rate.<br><b>Trap Analysis:</b> (B) provides the exact numbers supporting the reduction (4% vs 22% return rate)." },
+        { passage: "Marine biologists note that many species of deep-sea squid exhibit 'abyssal gigantism,' growing much larger than their shallow-water relatives. A prevailing theory attributes this to the extreme cold of the deep ocean, which slows metabolism and increases lifespan. Conversely, Biologist Dr. Rhee hypothesizes that the gigantism is an evolutionary response to the scarcity of food; a larger body mass allows the squid to travel vast distances efficiently without starving, searching the barren ocean floor for sparse prey.", question: "Which finding, if true, would most directly weaken Dr. Rhee’s hypothesis?", direction: "Weaken", options: ["Deep-sea squid species with the largest body masses are almost entirely stationary ambush predators that rarely swim long distances.", "The metabolic rate of deep-sea squids is substantially lower than that of squids living in warm, shallow waters.", "Fossil records indicate that abyssal gigantism in squids evolved independently in three different geological eras.", "Deep-sea squids have highly developed eyes that allow them to detect the faint bioluminescence of prey from far away."], correct: 0, pathology: "<b>Claim:</b> Gigantism = Allows efficient long-distance travel for food.<br><b>Trap Analysis:</b> (A) destroys the 'travel' premise. If the biggest squids are stationary and don't swim, they didn't evolve size for long-distance travel." },
+        { passage: "An economist is analyzing a city's decision to raise the minimum wage by 30% for restaurant workers. Critics predicted this would lead to massive layoffs as restaurants cut staff to save money. The economist hypothesizes that instead of laying off workers, restaurants primarily absorbed the new labor costs by raising menu prices and reducing the portion sizes of their dishes.", question: "Which choice provides data from the year following the wage increase that most directly supports the economist's hypothesis?", direction: "Support", options: ["The city's unemployment rate among restaurant workers rose from 4% to 9%.", "Average restaurant menu prices increased by 15%, and food suppliers reported that restaurants ordered 10% less raw ingredients per customer served.", "Several fast-food chains introduced automated ordering kiosks to replace human cashiers.", "Customer dining frequency dropped, with residents eating out an average of two times per month instead of four."], correct: 1, pathology: "<b>Claim:</b> Wage hike = NO layoffs + Raised prices + Reduced portions.<br><b>Trap Analysis:</b> (B) provides data for both parts of the economist's claim: prices went up 15%, and less raw ingredients per customer means smaller portions." },
+        { passage: "Astronomers recently detected a faint ring system around the exoplanet J-147b. In our solar system, Saturn's rings are primarily composed of reflective water-ice. Because J-147b orbits extremely close to its scorching hot host star, Dr. Varma hypothesizes that J-147b’s rings cannot possibly be made of ice, but must instead be composed of dark, pulverized rock and silicate dust from a destroyed moon.", question: "Which finding, if true, would most directly weaken Dr. Varma’s hypothesis?", direction: "Weaken", options: ["Spectroscopic analysis of the light passing through J-147b’s rings reveals strong absorption lines that are uniquely characteristic of frozen water vapor.", "The host star of J-147b emits intense stellar winds capable of blowing lightweight silicate dust out of the planet's orbit.", "Another exoplanet in the same system, located much further from the star, possesses thick rings made entirely of silicate rock.", "Computer models suggest that a rocky moon orbiting J-147b would be torn apart by gravitational forces within a million years."], correct: 0, pathology: "<b>Claim:</b> Too hot = Rings are ROCK, NOT ICE.<br><b>Trap Analysis:</b> (A) chemically proves the rings DO contain frozen water (ice), directly destroying the core premise of her hypothesis." },
+        { passage: "Sociologists studied the impact of a mandatory 'digital detox' week at a large high school, where all smartphones were banned on campus. The principal hypothesized that removing phones would force students to interact face-to-face, thereby significantly decreasing feelings of social isolation and loneliness among the student body.", question: "Which data point from student psychological evaluations most directly weakens the principal's hypothesis?", direction: "Weaken", options: ["During the detox week, incidents of physical bullying in the hallways decreased by 12%.", "Students reported that their average daily screen time dropped from 6 hours to 1.5 hours.", "The self-reported 'loneliness index' among students spiked by 20%, as many students felt cut off from their primary digital support networks and online friends.", "Teachers reported a 30% increase in active student participation during classroom discussions."], correct: 2, pathology: "<b>Claim:</b> No phones = Face-to-face interaction = DECREASED loneliness.<br><b>Trap Analysis:</b> (C) provides the opposite outcome: the loneliness index spiked by 20%. The policy backfired." }
+    ];
+
+    let currentQ = 0;
+    let selectedOptionIndex = null;
+    let questionStartTime = 0;
+    let studentSessionData = []; 
+    
+    // Timer Logic (Strict 30 mins)
+    let timeLeft = 30 * 60; // 1800 seconds
+    let timerInterval;
+
+    // DOM Elements
+    const views = document.querySelectorAll('.view-section');
+    const passageEl = document.getElementById('passage-text');
+    const questionEl = document.getElementById('question-text');
+    const optionsListEl = document.getElementById('options-list');
+    const qCounterEl = document.getElementById('q-counter');
+    const progressFill = document.getElementById('progress');
+    const directionDropdown = document.getElementById('direction-dropdown');
+    const submitBtn = document.getElementById('submit-btn');
+    const nextBtn = document.getElementById('next-btn');
+    const finishBtn = document.getElementById('finish-btn');
+    const feedbackBox = document.getElementById('feedback-box');
+    const timerDisplay = document.getElementById('timer-display');
+    const letters = ['A', 'B', 'C', 'D'];
+
+    function formatTime(seconds) {
+        const m = Math.floor(seconds / 60);
+        const s = seconds % 60;
+        return `${m < 10 ? '0' : ''}${m}:${s < 10 ? '0' : ''}${s}`;
+    }
+
+    function startTimer() {
+        timerDisplay.innerText = formatTime(timeLeft);
+        timerInterval = setInterval(() => {
+            timeLeft--;
+            timerDisplay.innerText = formatTime(timeLeft);
+            
+            if(timeLeft <= 300) { // 5 minutes warning
+                timerDisplay.classList.add('urgent');
+            }
+            
+            if(timeLeft <= 0) {
+                clearInterval(timerInterval);
+                forceSubmitTest();
+            }
+        }, 1000);
+    }
+
+    function switchView(viewId) {
+        views.forEach(v => v.classList.remove('active'));
+        document.getElementById(viewId).classList.add('active');
+    }
+
+    function loadQuestion(index) {
+        if(index >= questions.length) return finishTest();
+
+        const q = questions[index];
+        passageEl.innerHTML = q.passage;
+        questionEl.innerHTML = q.question;
+        qCounterEl.innerText = `Question ${index + 1} of ${questions.length}`;
+        progressFill.style.width = `${((index) / questions.length) * 100}%`;
+        
+        // Reset state
+        directionDropdown.value = "";
+        directionDropdown.disabled = false;
+        selectedOptionIndex = null;
+        feedbackBox.style.display = 'none';
+        submitBtn.style.display = 'block';
+        nextBtn.style.display = 'none';
+        finishBtn.style.display = 'none';
+
+        questionStartTime = Date.now();
+
+        // Render Options
+        optionsListEl.innerHTML = '';
+        q.options.forEach((optText, i) => {
+            const li = document.createElement('li');
+            li.className = 'option-item';
+            li.onclick = () => selectOption(i);
+            li.innerHTML = `<div class="letter-circle">${letters[i]}</div><div class="option-content">${optText}</div>`;
+            optionsListEl.appendChild(li);
+        });
+    }
+
+    function selectOption(index) {
+        if(submitBtn.style.display === 'none') return;
+        selectedOptionIndex = index;
+        const items = document.querySelectorAll('.option-item');
+        items.forEach(item => item.classList.remove('selected'));
+        items[index].classList.add('selected');
+    }
+
+    function checkAnswer() {
+        const userDirection = directionDropdown.value;
+        const targetDirection = questions[currentQ].direction;
+
+        if (userDirection === "") {
+            alert("🚨 ALINA, STOP! 🚨\nSelect Support/Weaken before answering!");
+            return;
+        }
+        if (userDirection !== targetDirection) {
+            alert(`🚨 FATAL TRAP TRIGGERED! 🚨\nRead carefully! You selected ${userDirection}, but the question asks to ${targetDirection}.`);
+            directionDropdown.value = "";
+            return;
+        }
+        if (selectedOptionIndex === null) {
+            alert("Please select an answer (A, B, C, or D).");
+            return;
+        }
+
+        const timeTakenSeconds = Math.round((Date.now() - questionStartTime) / 1000);
+        const isCorrect = (selectedOptionIndex === questions[currentQ].correct);
+
+        studentSessionData.push({
+            qNum: currentQ + 1,
+            direction: targetDirection,
+            answer: letters[selectedOptionIndex],
+            status: isCorrect ? "PASS" : "FAIL",
+            time: timeTakenSeconds
+        });
+
+        directionDropdown.disabled = true;
+        submitBtn.style.display = 'none';
+        
+        if (currentQ < questions.length - 1) {
+            nextBtn.style.display = 'block';
+        } else {
+            finishBtn.style.display = 'block';
+            progressFill.style.width = '100%';
+            clearInterval(timerInterval); // Stop timer on last question completion
+        }
+        
+        feedbackBox.style.display = 'block';
+        if (isCorrect) {
+            feedbackBox.className = 'feedback correct';
+            feedbackBox.innerHTML = `<strong>✅ CORRECT!</strong><div class="pathology">${questions[currentQ].pathology}</div>`;
+        } else {
+            feedbackBox.className = 'feedback incorrect';
+            feedbackBox.innerHTML = `<strong>❌ INCORRECT.</strong> The correct answer is <b>${letters[questions[currentQ].correct]}</b>.<div class="pathology">${questions[currentQ].pathology}</div>`;
+        }
+    }
+
+    function nextQuestion() {
+        currentQ++;
+        loadQuestion(currentQ);
+    }
+
+    function finishTest() {
+        generateCodeAndShow('completion-view');
+    }
+
+    function forceSubmitTest() {
+        // Record failure for current if unfinished
+        if (selectedOptionIndex === null && currentQ < questions.length) {
+            studentSessionData.push({
+                qNum: currentQ + 1,
+                direction: questions[currentQ].direction,
+                answer: "BLANK",
+                status: "FAIL (TIME UP)",
+                time: Math.round((Date.now() - questionStartTime) / 1000)
+            });
+        }
+        document.getElementById('end-title').innerText = "⏰ TIME IS UP!";
+        document.getElementById('end-title').style.color = "var(--danger)";
+        document.getElementById('end-msg').innerText = "You ran out of time! Please copy the code below for your teacher.";
+        generateCodeAndShow('completion-view');
+    }
+
+    function generateCodeAndShow(view) {
+        const rawJson = JSON.stringify(studentSessionData);
+        const encodedData = btoa(unescape(encodeURIComponent(rawJson))); 
+        document.getElementById('submission-code').innerText = encodedData;
+        switchView(view);
+    }
+
+    function copyCode() {
+        const codeText = document.getElementById('submission-code').innerText;
+        navigator.clipboard.writeText(codeText).then(() => {
+            alert("✅ Code copied! Send it to your teacher.");
+        });
+    }
+
+    // --- TEACHER PORTAL ---
+    function openTeacherPortal() {
+        const pass = prompt("Enter Teacher Password (leave blank):");
+        if(pass !== null) switchView('teacher-view');
+    }
+
+    function returnToQuiz() {
+        switchView('quiz-view');
+    }
+
+    function decodeData() {
+        const inputCode = document.getElementById('teacher-code-input').value.trim();
+        try {
+            const decodedJson = decodeURIComponent(escape(atob(inputCode)));
+            const dataArray = JSON.parse(decodedJson);
+            
+            let htmlRows = '';
+            let totalTime = 0;
+            let correctCount = 0;
+
+            dataArray.forEach(item => {
+                totalTime += item.time;
+                if(item.status === 'PASS') correctCount++;
+                
+                const statusClass = item.status === 'PASS' ? 'pass' : 'fail';
+                htmlRows += `<tr>
+                    <td>${item.qNum}</td>
+                    <td>${item.direction}</td>
+                    <td>${item.answer}</td>
+                    <td class="${statusClass}">${item.status}</td>
+                    <td>${item.time}s</td>
+                </tr>`;
+            });
+
+            const avgTime = dataArray.length > 0 ? Math.round(totalTime / dataArray.length) : 0;
+            const accuracy = dataArray.length > 0 ? Math.round((correctCount / dataArray.length) * 100) : 0;
+
+            document.getElementById('stats-summary').innerHTML = `
+                <span>Score: ${correctCount} / ${dataArray.length} (${accuracy}%)</span>
+                <span>Total Active Time: ${Math.floor(totalTime/60)}m ${totalTime%60}s</span>
+                <span>Avg Time/Question: ${avgTime}s</span>
+            `;
+
+            document.getElementById('report-table-body').innerHTML = htmlRows;
+            document.getElementById('teacher-dashboard').style.display = 'block';
+
+        } catch (e) {
+            alert("❌ Invalid Code! Ensure you copied the entire string.");
+            console.error(e);
+        }
+    }
+
+    // Initialize
+    loadQuestion(0);
+    startTimer();
+</script>
+</body>
+</html>
